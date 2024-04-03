@@ -15,14 +15,27 @@ app.get("/products", async (req, res) => {
   let filteredResults = [];
   try {
     const products = await Product.find({});
-    filters.price ? 
-    products.filter((ele) => {
-      if (ele.price == filters.price) {
-        filteredResults.push(ele);
-      }
-    }) : filteredResults = [...products]
-
-    res.status(200).json(filteredResults);
+    let isQueryValid = true;
+    const sortTag = req.query.sort;
+    const filtered = products
+      .sort((a, b) => {
+        return sortTag === "price"
+          ? a.price - b.price
+          : sortTag === "quantity"
+          ? a.quantity - b.quantity
+          : products;
+      })
+      .filter((ele) => {
+        if (sortTag) {
+          return products;
+        } else {
+          for (key in filters) {
+            isQueryValid = ele[key] && ele[key] == filters[key];
+          }
+          return isQueryValid;
+        }
+      });
+    res.status(200).json(filtered);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
