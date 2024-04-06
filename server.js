@@ -9,37 +9,42 @@ app.get("/", (req, res) => {
   res.send("Hi sd");
 });
 
+//middlewares
+const basicMiddleWare = (req, res, next) => {
+    // req.query.count = 5
+    next();
+}
+
 //getting whole products - added filtering as well
-app.get("/products", async (req, res) => {
+app.get("/products", basicMiddleWare, async (req, res) => {
   const filters = req.query || "";
-  let filteredResults = [];
+  const count = req.query.count || 0;
+  const pageNumber = req.query.page || 1;
+  const sortIsImplied = req.query.sort || false;
+  const filteredValue = filters.price;
   try {
-    const products = await Product.find({});
-    let isQueryValid = true;
-    const sortTag = req.query.sort;
-    const filtered = products
-      .sort((a, b) => {
-        return sortTag === "price"
-          ? a.price - b.price
-          : sortTag === "quantity"
-          ? a.quantity - b.quantity
-          : products;
-      })
-      .filter((ele) => {
-        if (sortTag) {
-          return products;
-        } else {
-          for (key in filters) {
-            isQueryValid = ele[key] && ele[key] == filters[key];
+    const products = await Product.find(
+      filteredValue
+        ? {
+            price: { $gte: filteredValue[0], $lte: filteredValue[1] },
           }
-          return isQueryValid;
-        }
-      });
-    res.status(200).json(filtered);
+        : {}
+    )
+      .sort(sortIsImplied ? { price: 1 } : {})
+      .skip(count * (pageNumber - 1))
+      .limit(count);
+    res
+      .status(200)
+      .json(
+        products != ""
+          ? { pageNumber: pageNumber, products: products }
+          : "Page Doesn't Exist"
+      );
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 });
+
 
 //getting product by id
 app.get("/products/:id", async (req, res) => {
