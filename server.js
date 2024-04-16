@@ -2,10 +2,29 @@ const express = require("express");
 const mongoose = require("mongoose");
 const Product = require("./models/productModel");
 const app = express();
+const cors = require('cors');
+const session = require('express-session')
+const MongoDBSession = require('connect-mongodb-session')(session)
 
 app.use(express.json());
+app.use(cors());
+
+const MONGOURI = "mongodb+srv://srinmolugu:rVWg3OgQOm6w0qt4@cluster0.jkz7oct.mongodb.net/"
+const store = new MongoDBSession({
+  uri: MONGOURI,
+  collection: 'sessions'
+})
+app.use(session({
+  secret: 'this key is a secret key',
+  resave: false,
+  saveUninitialized: false,
+  store: store,
+}))
 //routes
 app.get("/", (req, res) => {
+  req.session.isAuth = true;
+  console.log('req',req.session);
+  console.log('req',req.session.id);
   res.send("Hi sd");
 });
 
@@ -92,6 +111,7 @@ app.delete("/products/:id", async (req, res) => {
 });
 
 app.post("/products", async (req, res) => {
+  const {authorized} = req.body || false
   try {
     const product = await Product.create(req.body);
     res.status(200).json(product);
@@ -103,7 +123,7 @@ app.post("/products", async (req, res) => {
 
 mongoose
   .connect(
-    "mongodb+srv://srinmolugu:rVWg3OgQOm6w0qt4@cluster0.jkz7oct.mongodb.net/"
+    MONGOURI
   )
   .then(() => {
     console.log("connected to mongodb");
@@ -114,3 +134,6 @@ mongoose
   .catch((error) => {
     console.log("error", error);
   });
+
+//materials:
+  //https://www.youtube.com/watch?v=2PPSXonhIck
