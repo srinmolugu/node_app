@@ -19,13 +19,12 @@ app.use(session({
   resave: false,
   saveUninitialized: false,
   store: store,
+  cookie: { maxAge: 60000 } // session timeout of 60 seconds
 }))
 //routes
 app.get("/", (req, res) => {
   req.session.isAuth = true;
-  console.log('req',req.session);
-  console.log('req',req.session.id);
-  res.send("Hi sd");
+  res.send("Session is Authenticated and Pages are ready for use");
 });
 
 //middlewares
@@ -52,13 +51,20 @@ app.get("/employees", basicMiddleWare, async (req, res) => {
       .sort(sortIsImplied ? { salary: 1 } : {})
       .skip(count * (pageNumber - 1))
       .limit(count);
-    res
-      .status(200)
-      .json(
-        employees != ""
-          ? { pageNumber: pageNumber, employees: employees }
-          : "Page Doesn't Exist"
-      );
+      if(req.session.isAuth){
+        res
+        .status(200)
+        .json(
+          employees != ""
+            ? { pageNumber: pageNumber, employees: employees }
+            : "Page Doesn't Exist"
+        );
+      }else{
+        res
+        .status(401)
+        .json({ message: 'Invalid Session' })
+      }
+    
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
