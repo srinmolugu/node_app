@@ -1,29 +1,25 @@
 const mongoose = require("mongoose");
 
-const productSchema = mongoose.Schema(
+const EmployeeSchema = mongoose.Schema(
   {
     name: {
         type: String,
         required: true
     },
-    quantity: {
+    employeeId: {
         type: Number,
         required: true,
         default: 0
     },
-    price: {
+    salary: {
         type: Number,
         required: true,
-    },
-    image: {
-        type: String,
-        required: false,
     }
 },
 {
-    timestamps: true
+    timestamps: false
 }
 );
 
-const Product = mongoose.model('Product', productSchema);
-module.exports = Product
+const Employees = mongoose.model('Employees', EmployeeSchema);
+module.exports = Employees
