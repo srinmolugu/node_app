@@ -4,7 +4,11 @@ const app = express();
 const cors = require('cors');
 const session = require('express-session');
 const Employees = require("./models/EmployeeModel");
+const Users = require("./models/UserModel");
+const jwt = require('jsonwebtoken');
+const bcrypt = require('bcrypt');
 const MongoDBSession = require('connect-mongodb-session')(session)
+const secretKey = 'my_secret_key';
 
 app.use(express.json());
 app.use(cors());
@@ -19,7 +23,7 @@ app.use(session({
   resave: false,
   saveUninitialized: false,
   store: store,
-  cookie: { maxAge: 60000 } // session timeout of 60 seconds
+  cookie: { maxAge: 120000 } // session timeout of 60 seconds
 }))
 //routes
 app.get("/", (req, res) => {
@@ -27,14 +31,79 @@ app.get("/", (req, res) => {
   res.send("Session is Authenticated and Pages are ready for use");
 });
 
-//middlewares
-const basicMiddleWare = (req, res, next) => {
-    // req.query.count = 5
-    next();
+// Register route
+app.post('/register', async (req, res) => {
+  let user = await Users.findOne({ username: req.body.username })
+    if (user) {
+        return res.status(400).send('User already exisits. Please sign in')
+    } else {
+        try {
+            const salt = await bcrypt.genSalt(10)
+            const password = await bcrypt.hash(req.body.password, salt)
+            const user = new Users({
+                username: req.body.username,
+                password: password,
+                role: req.body.role
+            })
+            await user.save()
+            return res.status(201).json(user)
+        } catch (err) {
+            return res.status(400).json({ message: err.message })
+        }
+    }
+});
+
+
+//Handling user login
+app.post("/login", async function(req, res){
+  try {
+      // check if the user exists
+      const user = await Users.findOne({ username: req.body.username });
+      if (user) {
+        //check if password matches
+        bcrypt.compare(req.body.password, user.password, function(err, result) {
+          if (err){
+            res.status(500).json({ error: err });
+          }
+          if (result) {
+            const token = jwt.sign({ username: user.username }, secretKey);
+            res.setHeader('authorization', token)
+            res.status(200).json({ message: "U can browser paths in the website based on your role access" ,token: token})
+          } else {
+            res.status(400).json({ error: "password doesn't match" });
+          }
+        })
+      } else {
+        res.status(400).json({ error: "User doesn't exist" });
+      }
+    } catch (error) {
+      res.status(400).json({ error });
+    }
+});
+
+// Authorization middleware
+function authenticateToken(req, res, next) {
+  const token = req.headers['authorization'];
+  if (token == null) {
+      return res.status(401).send("Unauthorized");
+  }
+  jwt.verify(token, secretKey, async (err, user) => {
+    let role = await Users.findOne({ username: user.username })
+      if (err) {
+          return res.status(403).send("Forbidden");
+      }
+      if(role.role === 'admin'){
+        req.user = user;
+        next();
+      }else{
+        return res.status(403).send("U are a basic user, U don't have access to this path");
+      }
+      
+  });
 }
 
 //getting whole products - added filtering as well
-app.get("/employees", basicMiddleWare, async (req, res) => {
+app.get("/employees", authenticateToken, async (req, res) => {
   const filters = req.query || "";
   const count = req.query.count || 0;
   const pageNumber = req.query.page || 1;
